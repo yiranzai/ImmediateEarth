@@ -1,3 +1,3 @@
-# Code of Conduct
+# 行为准则
 
-This repo adheres to [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+本仓库遵循 [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)。

@@ -44,11 +44,13 @@
       {{ errorMessage }}
     </div>
     
-    <div v-if="tiles.length > 0" class="mt-4 grid grid-cols-4 gap-1">
+    <div v-if="tiles.length > 0" class="mt-4 grid grid-cols-4">
       <div v-for="(tile, index) in tiles" :key="index" class="aspect-square overflow-hidden">
-        <img :src="tile" alt="Satellite tile" class="w-full h-full object-cover">
+        <img :src="tile" alt="Satellite tile" class="w-full h-full block p-0 m-0 border-0">
       </div>
     </div>
+
+    <button @click="openImageDir" class="bg-green-500 text-white px-4 py-2 rounded">打开图片保存位置</button>
   </div>
 </template>
 
@@ -56,6 +58,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { path } from '@tauri-apps/api';
+import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener'
 // 使用浏览器原生Base64编码 API
 const encodeBase64 = (data: Uint8Array): string => {
   return btoa(String.fromCharCode(...data));
@@ -87,9 +90,9 @@ async function updateEarthImage() {
       
       // 加载所有16个瓦片
       tiles.value = [];
-      for (let i = 0; i < 4; i++) {
-        for (let j = 0; j < 4; j++) {
-          const tilePath = await path.join(tilesDir.value, `tile_${i}_${j}.png`);
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 4; col++) {
+          const tilePath = await path.join(tilesDir.value, `tile_${col}_${row}.png`);
           const imageBytes = await readFile(tilePath, { });
           const base64Data = encodeBase64(imageBytes);
           tiles.value.push(`data:image/png;base64,${base64Data}`);
@@ -142,8 +145,12 @@ async function setAsWallpaper() {
     isLoading.value = false;
   }
 }
-</script>
 
-<style scoped>
-/* Your component styles here */
-</style>
+async function openImageDir() {
+  const dir = await invoke<string>('get_image_dir')
+  // 推荐用 revealItemInDir，高亮目录
+  await revealItemInDir(dir)
+  // 或者用 openPath 直接打开
+  // await openPath(dir)
+}
+</script>

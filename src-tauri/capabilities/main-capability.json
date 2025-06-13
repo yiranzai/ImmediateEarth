@@ -10,6 +10,8 @@
     "fs:allow-appdata-read",
     "fs:scope-appdata-recursive",
     "core:path:allow-join",
-    "core:path:default"
+    "core:path:default",
+    "opener:allow-reveal-item-in-dir",
+    "opener:default"
   ]
 }

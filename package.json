@@ -18,6 +18,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.3.0",
     "@tauri-apps/plugin-fs": "^2.3.0",
+    "@tauri-apps/plugin-opener": "^2.2.7",
     "@tauri-apps/plugin-shell": "^2.2.0",
     "@vue/devtools": "^7.7.2",
     "pinia": "^3.0.1",
@@ -59,6 +60,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@swc/core",
+      "@tailwindcss/oxide",
       "electron",
       "esbuild",
       "vue-demi"

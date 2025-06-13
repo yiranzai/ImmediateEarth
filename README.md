@@ -39,6 +39,25 @@ ImmediateEarth通过涓流下载的方式获取资源占用极少的的网速。
 39: 根据太阳照射角度的不同，ImmediateEarth会自动选择不同的画面布局，为了提升壁纸的表现力，所有的角度都是由人工精挑细选的。
 
 
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_0_0.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_0_1.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_0_2.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_0_3.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_1_0.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_1_1.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_1_2.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_1_3.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_2_0.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_2_1.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_2_2.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_2_3.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_3_0.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_3_1.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_3_2.png
+Downloading tile: https://himawari.asia/img/D531106/4d/550/2025/06/13/154000_3_3.png
+这些图片用0_0/0_1诸如此类文件结尾， 第一个数组是列， 第二个数字是行
+
+
 
 # Tauri + Vue + Vite 模板
 

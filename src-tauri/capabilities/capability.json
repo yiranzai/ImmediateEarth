@@ -1,8 +1,10 @@
 {
-  "identifier": "main-capability",
+  "identifier": "capability",
   "description": "核心功能权限配置",
   "local": true,
-  "windows": ["data", "main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "fs:allow-read",
     "fs:allow-write",
@@ -11,7 +13,11 @@
     "fs:scope-appdata-recursive",
     "core:path:allow-join",
     "core:path:default",
+    "core:event:allow-listen",
+    "core:event:default",
     "opener:allow-reveal-item-in-dir",
-    "opener:default"
+    "opener:default",
+    "os:default",
+    "store:default"
   ]
 }

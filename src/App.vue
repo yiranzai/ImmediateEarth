@@ -22,7 +22,6 @@ store.initApp()
     </header>
     <div class="max-w-6xl mx-auto p-4">
       <SatelliteImageComponent />
-      <GreetComponent />
     </div>
 
     <footer class="bg-gray-800 text-gray-400 py-4 mt-8">

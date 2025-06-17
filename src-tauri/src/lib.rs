@@ -7,6 +7,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
+use tauri::tray::{TrayIconBuilder};
+use tauri::menu::{Menu, MenuItem, MenuItemBuilder, SubmenuBuilder, MenuBuilder};
+use tauri_plugin_opener::OpenerExt;
 
 // Learn more about Tauri commands at https://v2.tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -463,22 +466,97 @@ fn get_weather(city: String, key: String) -> Result<String, String> {
     }
 }
 
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
-        .setup(|_app| {
-            #[cfg(debug_assertions)] // only include this code on debug builds
-            {
-                let window = tauri::Manager::get_webview_window(_app, "main").unwrap();
-                window.open_devtools();
-            }
-            Ok(())
-        })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .setup(|app| {
+            // 系统托盘
+            let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        println!("quit menu item was clicked");
+                        app.exit(0);
+                    }
+                    _ => {
+                        println!("menu item {:?} not handled", event.id);
+                    }
+                })
+                .build(app)?;
+
+            // 注册全局菜单事件处理（托盘菜单项点击也会触发这里）
+            let app_handle = app.handle().clone();
+            app_handle.on_menu_event(move |app, event| {
+                match event.id().0.as_str() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {
+                        println!("menu item {:?} not handled", event.id);
+                    }
+                }
+            });
+
+            // 监听窗口关闭，实现最小化到托盘
+            let window = app.get_webview_window("main").unwrap();
+            window.clone().on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    #[cfg(not(target_os = "macos"))] {
+                        let win = app_handle.get_webview_window("main").unwrap();
+                        let _ = win.hide();
+                    }
+                    #[cfg(target_os = "macos")] {
+                        tauri::AppHandle::hide(&window.app_handle()).unwrap();
+                    }
+                    api.prevent_close();
+                }
+            });
+
+
+            // 窗口菜单
+            let cust_menu = MenuItemBuilder::with_id("Tauri Doc", "Tauri Doc").build(app)?;
+            let main_menu = SubmenuBuilder::with_id(app, "main_menu", "主菜单")
+                .items(&[&cust_menu])
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .items(&[&main_menu])
+                .build()?;
+            app.set_menu(menu)?;
+            app.on_menu_event(move |app, event| {
+                if event.id() == cust_menu.id() {
+                    let _ = app.opener().open_url("https://github.com/tauri-apps/tauri", None::<&str>);
+                }
+            });
+
+
+
+            #[cfg(debug_assertions)] // 仅在开发模式下打开 devtools
+            {
+                let window = app.get_webview_window("main").unwrap();
+                let _ = window.open_devtools();
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             update_earth_image,
@@ -490,5 +568,5 @@ pub fn run() {
             get_weather
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("启动失败");
 }

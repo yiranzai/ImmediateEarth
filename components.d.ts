@@ -8,7 +8,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    GreetComponent: typeof import('./src/components/GreetComponent.vue')['default']
     SatelliteImageComponent: typeof import('./src/components/SatelliteImageComponent.vue')['default']
   }
 }

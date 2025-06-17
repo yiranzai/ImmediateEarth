@@ -27,7 +27,7 @@
       </button>
       <label class="flex items-center h-10 px-4 rounded-lg font-semibold bg-yellow-300 text-gray-800 cursor-pointer">
         <input type="checkbox" v-model="autoSetWallpaperEnabled" class="mr-2 accent-yellow-500" />
-        自动每10分钟抓取并设置壁纸
+        自动每30分钟抓取并设置壁纸
       </label>
     </div>
 
@@ -51,6 +51,10 @@
              bg-emerald-600 hover:bg-emerald-700 text-white mb-4"
     >
       打开图片保存位置
+    </button>
+
+    <button @click="cleanOldImagesNow" class="h-10 px-6 rounded-lg bg-red-600 text-white">
+      立即清理旧图片
     </button>
   </div>
 </template>
@@ -85,6 +89,8 @@ const autoSetWallpaperEnabled = ref(false);
 let autoSetTimer: ReturnType<typeof setInterval> | null = null;
 let storeAutoSetWallpaperEnabled: Awaited<ReturnType<typeof load>> | null = null;
 
+const cleanTimer = ref<ReturnType<typeof setInterval> | null>(null);
+
 onMounted(async () => {
   storeAutoSetWallpaperEnabled = await load('settings.json');
   // 读取持久化的开关状态
@@ -96,6 +102,13 @@ onMounted(async () => {
   listen('toggle-auto-set-wallpaper', () => {
     autoSetWallpaperEnabled.value = !autoSetWallpaperEnabled.value;
   });
+
+  // 每小时定时清理一次
+  cleanTimer.value = setInterval(() => {
+    invoke('clean_old_images')
+      .then(() => console.log('定时清理完成'))
+      .catch(e => console.error('定时清理失败', e));
+  }, 60 * 60 * 1000); // 1小时
 });
 
 // 自动任务逻辑
@@ -103,10 +116,10 @@ watch(autoSetWallpaperEnabled, async (val) => {
   if (val) {
     // 立即执行一次
     updateEarthImage().then(() => setAsWallpaper());
-    // 每10分钟执行一次
+    // 每30分钟执行一次
     autoSetTimer = setInterval(() => {
       updateEarthImage().then(() => setAsWallpaper());
-    }, 10 * 60 * 1000);
+    }, 30 * 60 * 1000);
   } else {
     if (autoSetTimer) {
       clearInterval(autoSetTimer);
@@ -124,6 +137,10 @@ onUnmounted(() => {
   if (autoSetTimer) {
     clearInterval(autoSetTimer);
     autoSetTimer = null;
+  }
+  if (cleanTimer.value) {
+    clearInterval(cleanTimer.value);
+    cleanTimer.value = null;
   }
 });
 
@@ -266,4 +283,14 @@ const latestImageLocalTime = computed(() => {
   // 转为本地时间字符串
   return utcTime.toLocaleString();
 });
+
+// 可选：加一个按钮手动清理
+async function cleanOldImagesNow() {
+  try {
+    await invoke('clean_old_images');
+    alert('图片清理完成！');
+  } catch (e) {
+    alert('图片清理失败');
+  }
+}
 </script>

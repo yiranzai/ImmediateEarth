@@ -304,7 +304,7 @@ async fn crop_image_to_screen_ratio(
         img = DynamicImage::ImageRgba8(canvas);
         println!("【裁剪壁纸】剪左边黑边，补到右边，宽度: {}", black_border);
        }
-    } else if japan_hour >= 18 {
+    } else if japan_hour >= 15 {
         // 剪右边黑边，补到左边
         if img_width > black_border {
             // 1. 剪右边
@@ -339,7 +339,7 @@ async fn crop_image_to_screen_ratio(
     };
 
     // 保存裁剪后的图片
-    let new_path = add_suffix_to_filename(path, "_wall");
+    let new_path = add_suffix_to_filename(path, "_wallpaper");
     cropped_img.save(&new_path)
         .map_err(|e| format!("保存裁剪后图片失败: {}", e))?;
     println!("【裁剪壁纸】裁剪后图片已保存: {}", new_path.to_string_lossy());
@@ -377,6 +377,45 @@ async fn crop_and_set_wallpaper(
     Ok(cropped_path)
 }
 
+/// 只保留今天的图片，其余全部删除
+#[tauri::command]
+fn clean_old_images(app: tauri::AppHandle) -> Result<(), String> {
+    use chrono::Datelike;
+    // 获取图片保存目录
+    let app_data_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("无法获取应用本地数据目录: {}", e))?;
+    let mut base_path = std::path::PathBuf::from(app_data_dir);
+    base_path.push("immediate_earth");
+
+    // 获取今天日期字符串，格式：yyyyMMdd
+    let now = chrono::Utc::now();
+    let today_str = format!("{:04}{:02}{:02}", now.year(), now.month(), now.day());
+
+    // 遍历 immediate_earth 目录下所有文件
+    if let Ok(entries) = std::fs::read_dir(&base_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            // 跳过目录（如 tiles）
+            if path.is_dir() { continue; }
+            // 只处理 png 文件
+            if let Some(ext) = path.extension() {
+                if ext != "png" { continue; }
+            } else {
+                continue;
+            }
+            // 文件名中包含今天日期则保留，否则删除
+            let fname = path.file_name().unwrap_or_default().to_string_lossy();
+            if !fname.contains(&today_str) {
+                let _ = std::fs::remove_file(&path);
+                println!("【前端定时清理】已删除旧图片: {}", path.to_string_lossy());
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -399,7 +438,8 @@ pub fn run() {
             set_wallpaper,
             get_image_dir,
             crop_image_to_screen_ratio,
-            crop_and_set_wallpaper
+            crop_and_set_wallpaper,
+            clean_old_images
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

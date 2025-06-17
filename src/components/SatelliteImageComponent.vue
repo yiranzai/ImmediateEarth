@@ -8,6 +8,34 @@
 -->
 <template>
   <div class="satellite-image-container">
+    <!-- 天气信息展示区 -->
+    <div class="mb-4 p-3 rounded bg-blue-100 text-blue-900 font-semibold flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span>OpenWeather Key：</span>
+        <template v-if="!openWeatherKey">
+          <input v-model="inputKey" type="text" class="border rounded px-2 py-1" placeholder="OpenWeather Key" />
+          <button @click="saveKey" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
+        </template>
+        <template v-else>
+          <span class="text-xs text-gray-500">已保存</span>
+          <button @click="clearKey" class="ml-2 px-2 py-1 bg-gray-300 rounded text-gray-700">更换Key</button>
+        </template>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <span>城市：</span>
+        <input v-model="cityInput" type="text" class="border rounded px-2 py-1" placeholder="请输入城市名" />
+        <button @click="saveCity" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
+        <button @click="autoGetCity" class="ml-2 px-3 py-1 bg-green-500 text-white rounded">自动获取城市</button>
+        <span v-if="autoCityLoading" class="text-xs text-gray-500">自动获取中...</span>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <span>当前位置天气：</span>
+        <span v-if="weatherInfo">{{ weatherInfo }}</span>
+        <span v-else>加载中...</span>
+      </div>
+    </div>
+
+    <!-- 地球图像抓取区 -->
     <div class="flex flex-wrap items-center gap-3 mb-6">
       <button
         @click="updateEarthImage"
@@ -91,6 +119,13 @@ let storeAutoSetWallpaperEnabled: Awaited<ReturnType<typeof load>> | null = null
 
 const cleanTimer = ref<ReturnType<typeof setInterval> | null>(null);
 
+const weatherInfo = ref('');
+const cityInput = ref('');
+const savedCity = ref('');
+const autoCityLoading = ref(false);
+const openWeatherKey = ref('');
+const inputKey = ref('');
+
 onMounted(async () => {
   storeAutoSetWallpaperEnabled = await load('settings.json');
   // 读取持久化的开关状态
@@ -109,6 +144,8 @@ onMounted(async () => {
       .then(() => console.log('定时清理完成'))
       .catch(e => console.error('定时清理失败', e));
   }, 60 * 60 * 1000); // 1小时
+
+  loadKeyAndCity();
 });
 
 // 自动任务逻辑
@@ -293,4 +330,90 @@ async function cleanOldImagesNow() {
     alert('图片清理失败');
   }
 }
+
+// 读取本地 store 的 key 和城市
+async function loadKeyAndCity() {
+  const store = await load('settings.json');
+  const key = await store.get<string>('openweather_key');
+  if (key) openWeatherKey.value = key;
+  const city = await store.get<string>('weather_city');
+  if (city) {
+    savedCity.value = city;
+    cityInput.value = city;
+  }
+}
+
+// 保存 key 到 store
+async function saveKey() {
+  if (!inputKey.value) return;
+  const store = await load('settings.json');
+  await store.set('openweather_key', inputKey.value);
+  await store.save();
+  openWeatherKey.value = inputKey.value;
+  inputKey.value = '';
+  fetchWeather();
+}
+
+// 清除 key
+async function clearKey() {
+  const store = await load('settings.json');
+  await store.delete('openweather_key');
+  await store.save();
+  openWeatherKey.value = '';
+  weatherInfo.value = '';
+}
+
+// 保存城市到 store
+async function saveCity() {
+  if (!cityInput.value) return;
+  const store = await load('settings.json');
+  await store.set('weather_city', cityInput.value);
+  await store.save();
+  savedCity.value = cityInput.value;
+  fetchWeather();
+}
+
+// 自动获取城市名
+async function autoGetCity() {
+  autoCityLoading.value = true;
+  try {
+    const resp = await fetch('https://cip.cc');
+    const text = await resp.text();
+    // cip.cc 返回内容如：IP : 1.2.3.4\n地址 : 中国 广东 广州\n...
+    // 尝试提取城市名（最后一个汉字词）
+    const match = text.match(/地址\\s*:\\s*.+?([\\u4e00-\\u9fa5]{2,})\\s*$/m);
+    if (match) {
+      cityInput.value = match[1];
+      await saveCity();
+    } else {
+      weatherInfo.value = '自动获取城市失败';
+    }
+  } catch (e) {
+    weatherInfo.value = '自动获取城市失败';
+  } finally {
+    autoCityLoading.value = false;
+  }
+}
+
+// 获取天气
+async function fetchWeather() {
+  if (!savedCity.value || !openWeatherKey.value) {
+    weatherInfo.value = '';
+    return;
+  }
+  weatherInfo.value = '';
+  try {
+    const result = await invoke<string>('get_weather', { city: savedCity.value, key: openWeatherKey.value });
+    weatherInfo.value = result;
+  } catch (e) {
+    weatherInfo.value = '天气获取失败';
+  }
+}
+
+// 监听 key 和城市变化自动刷新天气
+watch([openWeatherKey, savedCity], ([key, city]) => {
+  if (key && city) {
+    fetchWeather();
+  }
+});
 </script>

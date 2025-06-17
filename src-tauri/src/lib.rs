@@ -1,7 +1,7 @@
 use chrono::{Datelike, Timelike, Utc, Duration};
 use image::{self, GenericImageView, Rgba, RgbaImage, imageops, DynamicImage};
 use reqwest::blocking::Client;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_json::to_string;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -416,6 +416,53 @@ fn clean_old_images(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 通过 OpenWeather API 获取天气信息，key 由前端传递
+#[tauri::command]
+fn get_weather(city: String, key: String) -> Result<String, String> {
+    // 直接用前端传来的 key
+    let url = format!(
+        "https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units=metric&lang=zh_cn",
+        city, key
+    );
+    let client = Client::new();
+    let resp = client.get(&url)
+        .send()
+        .map_err(|e| format!("请求OpenWeather失败: {}", e))?
+        .text()
+        .map_err(|e| format!("读取OpenWeather响应失败: {}", e))?;
+
+    #[derive(Deserialize)]
+    struct WeatherResp {
+        weather: Vec<WeatherDesc>,
+        main: WeatherMain,
+        name: String,
+    }
+    #[derive(Deserialize)]
+    struct WeatherDesc {
+        description: String,
+    }
+    #[derive(Deserialize)]
+    struct WeatherMain {
+        temp: f32,
+        humidity: u8,
+    }
+
+    let weather: WeatherResp = serde_json::from_str(&resp)
+        .map_err(|e| format!("解析OpenWeather响应失败: {}", e))?;
+    if !weather.weather.is_empty() {
+        let desc = &weather.weather[0].description;
+        let temp = weather.main.temp;
+        let humidity = weather.main.humidity;
+        let city = &weather.name;
+        Ok(format!(
+            "{} {}°C 湿度{}% ({})",
+            desc, temp.round(), humidity, city
+        ))
+    } else {
+        Err("未获取到天气信息".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -439,7 +486,8 @@ pub fn run() {
             get_image_dir,
             crop_image_to_screen_ratio,
             crop_and_set_wallpaper,
-            clean_old_images
+            clean_old_images,
+            get_weather
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

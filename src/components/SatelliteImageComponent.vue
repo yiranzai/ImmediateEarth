@@ -2,7 +2,7 @@
  * @Author: yiranzai wuqingdzx@gmail.com
  * @Date: 2025-06-12 21:12:07
  * @LastEditors: yiranzai wuqingdzx@gmail.com
- * @LastEditTime: 2025-06-13 01:13:30
+ * @LastEditTime: 2025-06-18 22:53:18
  * @FilePath: \ImmediateEarth\src\components\SatelliteImageComponent.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -144,11 +144,18 @@
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
 import { readFile, readDir } from '@tauri-apps/plugin-fs'
-import { join, basename } from '@tauri-apps/api/path'
+import { join, basename, appLocalDataDir  } from '@tauri-apps/api/path'
 import { openPath, revealItemInDir } from '@tauri-apps/plugin-opener'
 // 使用浏览器原生Base64编码 API
 const encodeBase64 = (data: Uint8Array): string => {
-  return btoa(String.fromCharCode(...data))
+  // 分块处理大数组避免栈溢出
+  const chunkSize = 8192;
+  let result = '';
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.subarray(i, i + chunkSize);
+    result += String.fromCharCode(...chunk);
+  }
+  return btoa(result);
 }
 import { ref, onMounted, watch, onUnmounted, computed, nextTick } from 'vue'
 import { useStore } from '../store'
@@ -345,6 +352,9 @@ onMounted(async () => {
   listen('toggle-auto-set-wallpaper', () => {
     autoSetWallpaperEnabled.value = !autoSetWallpaperEnabled.value
   })
+
+  const appLocalDataDirPath = await appLocalDataDir();
+  console.log('appLocalDataDirPath', appLocalDataDirPath)
 
   // 每小时定时清理一次
   cleanTimer.value = setInterval(
@@ -707,7 +717,7 @@ async function loadMonitorWallpapersAndDraw() {
       )
     } catch (e) {
       arr[i] = ''
-      imgArr[i] = null
+      imgArr[i] = new Image();
       loadPromises.push(Promise.resolve())
     }
   }

@@ -1,4 +1,5 @@
 {
+  "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "capability",
   "description": "核心功能权限配置",
   "local": true,
@@ -18,6 +19,10 @@
     "opener:allow-reveal-item-in-dir",
     "opener:default",
     "os:default",
-    "store:default"
+    "store:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPLOCALDATA" }, { "path": "$APPLOCALDATA/**" }]
+    }
   ]
 }

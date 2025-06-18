@@ -19,6 +19,7 @@ dependencies = [
  "tauri-plugin-prevent-default",
  "tauri-plugin-shell",
  "tauri-plugin-store",
+ "windows",
 ]
 
 [[package]]

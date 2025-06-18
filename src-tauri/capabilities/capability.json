@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "capability",
+  "description": "核心功能权限配置",
+  "local": true,
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "fs:allow-read",
+    "fs:allow-write",
+    "fs:allow-read-file",
+    "fs:allow-appdata-read",
+    "fs:scope-appdata-recursive",
+    "core:path:allow-join",
+    "core:path:default",
+    "core:event:allow-listen",
+    "core:event:default",
+    "opener:allow-reveal-item-in-dir",
+    "opener:default",
+    "os:default",
+    "store:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "$APPLOCALDATA" }, { "path": "$APPLOCALDATA/**" }]
+    }
+  ]
+}

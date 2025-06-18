@@ -1,9 +1,9 @@
 [package]
-name = "tauri-app"
+name = "ImmediateEarth"
 version = "2.3.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+description = "即刻地球"
+authors = ["Yiranzai"]
+edition = "2024"
 repository = "https://github.com/Uninen/tauri-vue-template"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -19,16 +19,26 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
-tauri-plugin-fs = "2"
+tauri = { version = "2.5.1", features = [
+    'tray-icon',
+    'image-ico',
+    'image-png',
+] }
+tauri-plugin-shell = "2.2.2"
+tauri-plugin-fs = "2.3.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-prevent-default = "2.0"
 reqwest = { version = "0.11", features = ["blocking"] }
-image = { version = "0.24", features = [] }
+image = "0.24"
 chrono = { version = "0.4", features = [] }
-tauri-plugin-opener = "2"
+tauri-plugin-opener = "2.3.0"
+tauri-plugin-os = "2.2.2"
+tauri-plugin-store = "2.2.1"
+
+[target."cfg(windows)".dependencies.windows]
+version = "^0.61"
+features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"]
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.

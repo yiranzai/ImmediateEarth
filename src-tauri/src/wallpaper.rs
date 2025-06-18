@@ -2,8 +2,9 @@ use chrono::{Duration, Timelike, Utc};
 use image::{self, DynamicImage, GenericImageView, Rgba, RgbaImage, imageops};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tauri::{AppHandle, Manager};
+#[cfg(target_os = "macos")]
+use std::process::Command;
 
 /// 为每个显示器创建独立的壁纸目录
 pub fn create_monitor_wallpaper_dir(
@@ -121,6 +122,7 @@ pub async fn set_wallpaper_for_monitor(
 ) -> Result<(), String> {
     match platform.as_str() {
         "windows" => {
+            #[cfg(target_os = "windows")]{
             use windows::Win32::{UI::WindowsAndMessaging::{SystemParametersInfoW, SPI_SETDESKWALLPAPER, SPIF_UPDATEINIFILE, SPIF_SENDCHANGE}};
             use windows::core::{PCWSTR};
 
@@ -148,8 +150,10 @@ pub async fn set_wallpaper_for_monitor(
                  return Err(format!("SystemParametersInfoW调用失败
  文件路径: {}", image_path));
              };
+            }
         }
         "macos" => {
+            #[cfg(target_os = "macos")] {
             let cmd = format!(
                 "tell application \"System Events\" to set picture of desktop {} to \"{}\"",
                 monitor_index + 1,
@@ -159,8 +163,10 @@ pub async fn set_wallpaper_for_monitor(
                 .args(&["-e", &cmd])
                 .spawn()
                 .map_err(|e| format!("macOS 设置失败: {}", e))?;
+            }
         }
         "linux" => {
+            #[cfg(target_os = "linux")] {
             if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
                 if desktop.contains("GNOME") {
                     let cmd = format!("file://{}", image_path);
@@ -190,6 +196,7 @@ pub async fn set_wallpaper_for_monitor(
                         .map_err(|e| format!("KDE 设置失败: {}", e))?;
                 }
             }
+          }
         }
         _ => return Err("不支持的平台".into()),
     }

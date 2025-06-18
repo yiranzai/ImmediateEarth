@@ -1,6 +1,6 @@
 # ImmediateEarth
 
-![ImmediateEarth Logo](public/v2_screenshot.webp)
+![ImmediateEarth Logo](src-tauri/icons/icon.png)
 
 ImmediateEarth是一款动态壁纸应用，能够实时抓取向日葵8号卫星拍摄的地球图像，经过艺术化处理后设置为桌面壁纸。软件设计注重用户体验，采用后台涓流下载技术，自动根据系统资源使用情况调整运行策略，实现低资源占用与优质视觉体验的平衡。
 是[让地球的实时美丽照片显示在你的Mac桌面上丨即刻地球](https://sspai.com/post/48278)的实现， 原软件已不可用，本人非常喜欢，所以复刻本软件。

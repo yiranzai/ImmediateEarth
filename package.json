@@ -1,7 +1,7 @@
 {
   "name": "immediate-earth",
   "private": true,
-  "version": "2.3.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently --kill-others \"pnpm vite:dev\" \"pnpm devtools\"",
@@ -13,7 +13,9 @@
     "type-check": "vue-tsc --build --force",
     "tauri": "tauri",
     "bump": "node bump-version.cjs",
-    "check": "cargo check --manifest-path src-tauri/Cargo.toml"
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "updater": "node scripts/updater.mjs",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.3.0",

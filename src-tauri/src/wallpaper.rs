@@ -3,7 +3,6 @@ use image::{self, DynamicImage, GenericImageView, Rgba, RgbaImage, imageops};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
-#[cfg(target_os = "macos")]
 use std::process::Command;
 
 /// 为每个显示器创建独立的壁纸目录

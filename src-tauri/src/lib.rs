@@ -1,15 +1,15 @@
-use chrono::{Datelike, Timelike, Utc, Duration};
-use image::{self, GenericImageView, Rgba, RgbaImage, imageops, DynamicImage};
+use chrono::{Datelike, Timelike, Utc};
+use image::{self, GenericImageView};
 use reqwest::blocking::Client;
 use serde::{Serialize, Deserialize};
 use serde_json::to_string;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tauri::{AppHandle, Manager};
 use tauri::tray::{TrayIconBuilder};
 use tauri::menu::{Menu, MenuItem, MenuItemBuilder, SubmenuBuilder, MenuBuilder};
 use tauri_plugin_opener::OpenerExt;
+mod wallpaper;
 
 // Learn more about Tauri commands at https://v2.tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -53,7 +53,6 @@ fn update_earth_image(app: tauri::AppHandle) -> Result<String, String> {
     let mut earth = image::ImageBuffer::new(total_size as u32, total_size as u32);
     let client = Client::new();
 
-    // Download and stitch tiles
     for i in 0..multiple {
         for j in 0..multiple {
             let url = format!(
@@ -70,6 +69,9 @@ fn update_earth_image(app: tauri::AppHandle) -> Result<String, String> {
             let tile_data = response
                 .bytes()
                 .map_err(|e| format!("Failed to read tile data: {}", e))?;
+            if tile_data.len() == 2834 {
+                return Err(format!("本次爬取失败，tile({},{})大小异常", i, j));
+            }
             let tile = image::load_from_memory(&tile_data)
                 .map_err(|e| format!("Failed to decode tile: {}", e))?
                 .to_rgba8();
@@ -132,124 +134,19 @@ fn update_earth_image(app: tauri::AppHandle) -> Result<String, String> {
     to_string(&image_paths).map_err(|e| format!("Failed to serialize paths: {}", e))
 }
 
-/// 设置系统壁纸的跨平台命令
-/// 参数 image_path 必须为绝对路径，platform 由前端传递
-#[tauri::command]
-async fn set_wallpaper(image_path: String, platform: String) -> Result<(), String> {
-    println!("【设置壁纸】收到请求，图片路径: {}, 平台: {}", image_path, platform);
-
-    // 检查路径是否为绝对路径
-    if !std::path::Path::new(&image_path).is_absolute() {
-        println!("【设置壁纸】图片路径不是绝对路径: {}", image_path);
-        return Err("图片路径必须为绝对路径".into());
+/// 辅助函数：为文件名添加后缀，保留原扩展名
+pub fn add_suffix_to_filename(path: &Path, suffix: &str) -> PathBuf {
+    let mut new_path = path.to_path_buf();
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = path.extension().unwrap_or_default().to_string_lossy();
+    let new_name = if ext.is_empty() {
+        format!("{}{}", stem, suffix)
     } else {
-        println!("【设置壁纸】图片路径校验通过");
-    }
-
-    match platform.as_str() {
-        "windows" => {
-            let cmd = format!(
-                "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; \
-                public class Wallpaper {{ [DllImport(\"user32.dll\", CharSet=CharSet.Auto)] \
-                public static extern int SystemParametersInfo(int uAction, int uParam, String lpvParam, int fuWinIni); }}'; \
-                [Wallpaper]::SystemParametersInfo(20, 0, '{}', 3)",
-                image_path
-            );
-            println!("【设置壁纸】Windows 平台，执行 PowerShell 命令: {}", cmd);
-            let result = Command::new("powershell")
-                .args(&["-Command", &cmd])
-                .spawn();
-            match result {
-                Ok(_) => println!("【设置壁纸】Windows 壁纸设置命令已执行"),
-                Err(e) => {
-                    println!("【设置壁纸】Windows 设置失败: {}", e);
-                    return Err(format!("Windows 设置失败: {}", e));
-                }
-            }
-        }
-        "macos" => {
-            let cmd = format!(
-                "tell application \"System Events\" to set picture of every desktop to \"{}\"",
-                image_path
-            );
-            println!("【设置壁纸】macOS 平台，执行 osascript 命令: {}", cmd);
-            let result = Command::new("osascript")
-                .args(&["-e", &cmd])
-                .spawn();
-            match result {
-                Ok(_) => println!("【设置壁纸】macOS 壁纸设置命令已执行"),
-                Err(e) => {
-                    println!("【设置壁纸】macOS 设置失败: {}", e);
-                    return Err(format!("macOS 设置失败: {}", e));
-                }
-            }
-        }
-        "linux" => {
-            if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
-                println!("【设置壁纸】Linux 平台，桌面环境: {}", desktop);
-                if desktop.contains("GNOME") {
-                    let cmd = format!("file://{}", image_path);
-                    println!("【设置壁纸】GNOME，执行 gsettings 命令，图片 URI: {}", cmd);
-                    let result = Command::new("gsettings")
-                        .args(&[
-                            "set",
-                            "org.gnome.desktop.background",
-                            "picture-uri",
-                            &cmd,
-                        ])
-                        .spawn();
-                    match result {
-                        Ok(_) => println!("【设置壁纸】GNOME 壁纸设置命令已执行"),
-                        Err(e) => {
-                            println!("【设置壁纸】GNOME 设置失败: {}", e);
-                            return Err(format!("GNOME 设置失败: {}", e));
-                        }
-                    }
-                } else if desktop.contains("KDE") {
-                    let script = format!(
-                        "string:var allDesktops = desktops(); \
-                        for (i=0; i<allDesktops.length; i++) {{ \
-                        d = allDesktops[i]; \
-                        d.wallpaperPlugin = \"org.kde.image\"; \
-                        d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); \
-                        d.writeConfig(\"Image\", \"file://{}\") }}",
-                        image_path
-                    );
-                    println!("【设置壁纸】KDE，执行 dbus-send 命令，脚本: {}", script);
-                    let result = Command::new("dbus-send")
-                        .args(&[
-                            "--session",
-                            "--dest=org.kde.plasmashell",
-                            "--type=method_call",
-                            "/PlasmaShell",
-                            "org.kde.PlasmaShell.evaluateScript",
-                            &script,
-                        ])
-                        .spawn();
-                    match result {
-                        Ok(_) => println!("【设置壁纸】KDE 壁纸设置命令已执行"),
-                        Err(e) => {
-                            println!("【设置壁纸】KDE 设置失败: {}", e);
-                            return Err(format!("KDE 设置失败: {}", e));
-                        }
-                    }
-                } else {
-                    println!("【设置壁纸】不支持的 Linux 桌面环境: {}", desktop);
-                    return Err("不支持的 Linux 桌面环境".into());
-                }
-            } else {
-                println!("【设置壁纸】无法检测 Linux 桌面环境");
-                return Err("无法检测 Linux 桌面环境".into());
-            }
-        }
-        _ => {
-            println!("【设置壁纸】不支持的平台: {}", platform);
-            return Err("不支持的平台".into());
-        }
-    }
-    println!("【设置壁纸】壁纸设置流程结束");
-    Ok(())
-}
+        format!("{}{}.{}", stem, suffix, ext)
+    };
+    new_path.set_file_name(new_name);
+    new_path
+} 
 
 #[tauri::command]
 fn get_image_dir(app: tauri::AppHandle) -> Result<String, String> {
@@ -260,124 +157,6 @@ fn get_image_dir(app: tauri::AppHandle) -> Result<String, String> {
     let mut base_path = std::path::PathBuf::from(app_data_dir);
     base_path.push("immediate_earth");
     Ok(base_path.to_string_lossy().to_string())
-}
-
-/// 根据主显示器分辨率比例裁剪图片，并添加 _wall 后缀保存
-/// 参数 image_path 必须为绝对路径
-#[tauri::command]
-async fn crop_image_to_screen_ratio(
-    app_handle: AppHandle,
-    image_path: String,
-) -> Result<String, String> {
-    println!("【裁剪壁纸】收到图片路径: {}", image_path);
-
-    // 获取主显示器分辨率
-    let monitor = app_handle.primary_monitor()
-        .map_err(|e| e.to_string())?
-        .ok_or("未找到主显示器".to_string())?;
-    let screen_width = monitor.size().width as f64;
-    let screen_height = monitor.size().height as f64;
-    let screen_ratio = screen_width / screen_height;
-    println!("【裁剪壁纸】主显示器分辨率: {}x{}, 屏幕比例: {}", screen_width, screen_height, screen_ratio);
-
-    // 打开图片
-    let path = Path::new(&image_path);
-    let mut img = image::open(path)
-        .map_err(|e| format!("打开图片失败: {}", e))?;
-    let (img_width, img_height) = img.dimensions();
-    // black_border 基于原始宽度
-    let black_border = (img_width as f32 / 12.0).round() as u32;
-    let black_border = black_border * 2;
-
-
-    // 预处理图片, 先剪掉左边或者右边的黑边
-    let now_utc = Utc::now();
-    let japan_time = now_utc + Duration::hours(9);
-    let japan_hour = japan_time.hour();
-    
-    if japan_hour < 6 {
-       // 剪左边黑边，补到右边
-       if img_width > black_border {
-        // 1. 剪左边
-        let cropped = img.crop(black_border, 0, img_width - black_border, img_width);
-        // 2. 新建全黑画布
-        let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
-        // 3. 把裁剪后的图片粘贴到左侧
-        imageops::replace(&mut canvas, &cropped, 0, 0);
-        img = DynamicImage::ImageRgba8(canvas);
-        println!("【裁剪壁纸】剪左边黑边，补到右边，宽度: {}", black_border);
-       }
-    } else if japan_hour >= 15 {
-        // 剪右边黑边，补到左边
-        if img_width > black_border {
-            // 1. 剪右边
-            let cropped = img.crop(0, 0, img_width - black_border, img_width);
-            // 2. 新建全黑画布
-            let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
-            // 3. 把裁剪后的图片粘贴到右侧
-            imageops::replace(&mut canvas, &cropped, black_border as i64, 0);
-            img = DynamicImage::ImageRgba8(canvas);
-            println!("【裁剪壁纸】剪右边黑边，补到左边，宽度: {}", black_border);
-        }
-        
-    } else {
-        println!("【裁剪壁纸】日本时间{}点，无需剪黑边", japan_hour);
-    }
-    // 剪黑边后，重新获取宽高和比例
-    let (img_width, img_height) = img.dimensions();
-    let img_ratio = img_width as f64 / img_height as f64;
-    println!("【裁剪壁纸】剪黑边后图片尺寸: {}x{}, 新比例: {}", img_width, img_height, img_ratio);
-
-    // 只做裁剪，不加黑边
-    let cropped_img = if screen_ratio > img_ratio {
-        // 屏幕更宽：以图片宽为基准，剪裁高度，保留上部
-        let target_height = (img_width as f64 / screen_ratio).round() as u32;
-        let crop_height = target_height.min(img_height);
-        img.crop(0, 0, img_width, crop_height)
-    } else {
-        // 屏幕更窄：以图片高为基准，剪裁宽度，保留左部
-        let target_width = (img_height as f64 * screen_ratio).round() as u32;
-        let crop_width = target_width.min(img_width);
-        img.crop(0, 0, crop_width, img_height)
-    };
-
-    // 保存裁剪后的图片
-    let new_path = add_suffix_to_filename(path, "_wallpaper");
-    cropped_img.save(&new_path)
-        .map_err(|e| format!("保存裁剪后图片失败: {}", e))?;
-    println!("【裁剪壁纸】裁剪后图片已保存: {}", new_path.to_string_lossy());
-
-    Ok(new_path.to_string_lossy().into_owned())
-}
-
-/// 辅助函数：为文件名添加后缀
-fn add_suffix_to_filename<P: AsRef<Path>>(path: P, suffix: &str) -> PathBuf {
-    let path = path.as_ref();
-    let parent = path.parent().unwrap_or_else(|| Path::new(""));
-    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let extension = path.extension().map(|ext| format!(".{}", ext.to_string_lossy())).unwrap_or_default();
-    let new_filename = format!("{}{}{}", stem, suffix, extension);
-    parent.join(new_filename)
-}
-
-/// 先按屏幕比例裁剪图片，再设置为壁纸
-#[tauri::command]
-async fn crop_and_set_wallpaper(
-    app_handle: AppHandle,
-    image_path: String,
-    platform: String,
-) -> Result<String, String> {
-    // 第一步：裁剪图片
-    let cropped_path = crop_image_to_screen_ratio(app_handle.clone(), image_path.clone()).await
-        .map_err(|e| format!("图片裁剪失败: {}", e))?;
-
-    // 第二步：设置壁纸
-    set_wallpaper(cropped_path.clone(), platform)
-        .await
-        .map_err(|e| format!("设置壁纸失败: {}", e))?;
-
-    // 返回裁剪后图片路径
-    Ok(cropped_path)
 }
 
 /// 只保留今天的图片，其余全部删除
@@ -466,6 +245,91 @@ fn get_weather(city: String, key: String) -> Result<String, String> {
     }
 }
 
+// 新增：获取所有显示器信息的命令
+#[tauri::command]
+fn get_all_monitors(app: AppHandle) -> Result<String, String> {
+    let monitors = app.available_monitors()
+        .map_err(|e| format!("获取显示器信息失败: {}", e))?;
+    let primary = app.primary_monitor()
+        .map_err(|e| format!("获取主屏幕失败: {}", e))?;
+    #[derive(Serialize)]
+    struct MonitorInfo {
+        name: String,
+        position: (i32, i32),
+        size: (u32, u32),
+        scale_factor: f64,
+        is_primary: bool,
+    }
+    let monitor_infos: Vec<MonitorInfo> = monitors.iter().map(|m| {
+        let is_primary = if let Some(ref p) = primary {
+            m.name() == p.name() &&
+            m.position().x == p.position().x &&
+            m.position().y == p.position().y &&
+            m.size().width == p.size().width &&
+            m.size().height == p.size().height &&
+            (m.scale_factor() - p.scale_factor()).abs() < 0.0001
+        } else {
+            false
+        };
+        MonitorInfo {
+            name: m.name().map_or("Unknown".to_string(), |s| s.to_string()),
+            position: (m.position().x, m.position().y),
+            size: (m.size().width, m.size().height),
+            scale_factor: m.scale_factor(),
+            is_primary,
+        }
+    }).collect();
+    serde_json::to_string(&monitor_infos)
+        .map_err(|e| format!("序列化显示器信息失败: {}", e))
+}
+
+// 修改：为所有显示器设置壁纸
+#[tauri::command]
+async fn set_wallpaper_for_all_monitors(
+    app: AppHandle,
+    image_path: String,
+    platform: String,
+    monitor_indexes: Option<Vec<usize>>,
+) -> Result<String, String> {
+    let monitors = app.available_monitors()
+        .map_err(|e| format!("获取显示器信息失败: {}", e))?;
+    // 打印所有屏幕详细信息
+    println!("【所有屏幕信息】");
+    for (idx, m) in monitors.iter().enumerate() {
+        println!(
+            "屏幕{}: name={:?}, position=({},{}) size=({}x{}) scale_factor={}",
+            idx,
+            m.name(),
+            m.position().x, m.position().y,
+            m.size().width, m.size().height,
+            m.scale_factor()
+        );
+    }
+    // 处理要设置的屏幕索引
+    let target_indexes: Vec<usize> = if let Some(ref idxs) = monitor_indexes {
+        if idxs.is_empty() {
+            (0..monitors.len()).collect()
+        } else {
+            idxs.clone()
+        }
+    } else {
+        (0..monitors.len()).collect()
+    };
+    let mut results = Vec::new();
+    for &index in &target_indexes {
+        if let Some(monitor) = monitors.get(index) {
+            println!("【设置壁纸】正在处理显示器 {}: {}x{}", 
+                index, monitor.size().width, monitor.size().height);
+            let cropped_path = wallpaper::crop_image_for_monitor(&app, &image_path, index).await?;
+            wallpaper::set_wallpaper_for_monitor(cropped_path.clone(), platform.clone(), index).await?;
+            results.push(cropped_path);
+        } else {
+            println!("警告：索引{}的屏幕不存在，跳过", index);
+        }
+    }
+    Ok(serde_json::to_string(&results)
+        .map_err(|e| format!("序列化结果失败: {}", e))?)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -560,12 +424,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             update_earth_image,
-            set_wallpaper,
             get_image_dir,
-            crop_image_to_screen_ratio,
-            crop_and_set_wallpaper,
             clean_old_images,
-            get_weather
+            get_weather,
+            get_all_monitors,
+            set_wallpaper_for_all_monitors
         ])
         .run(tauri::generate_context!())
         .expect("启动失败");

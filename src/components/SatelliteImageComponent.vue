@@ -23,6 +23,10 @@
       >
         设置
       </button>
+          <!-- 新增：地球大图时间显示 -->
+    <div v-if="latestImageLocalTime" class="px-4 py-2 rounded-t font-semibold">
+      当前图片更新时间：<span class="text-yellow-500 font-bold">{{ latestImageLocalTime }}</span>
+    </div>
     </div>
 
     <div v-show="activeTab === 'main'">
@@ -410,6 +414,21 @@ onUnmounted(() => {
   }
 })
 
+// 新增：地球大图本地时间
+const latestImageLocalTime = computed(() => {
+  if (!latestImageName.value) return ''
+  // 假设文件名格式为 earth_YYYYMMDD_HHMM_black.png
+  const match = latestImageName.value.match(/earth_(\d{8})_(\d{4})/)
+  if (!match) return ''
+  const [, dateStr, timeStr] = match
+  // 构造 UTC 时间
+  const utcTime = new Date(
+    `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}:00Z`
+  )
+  // 转为本地时间字符串
+  return utcTime.toLocaleString()
+})
+
 async function findLatestImage() {
   try {
     // 获取图片目录
@@ -424,13 +443,12 @@ async function findLatestImage() {
     if (imageFiles.length > 0) {
       const latest = imageFiles[imageFiles.length - 1]
       mergedImagePath.value = await join(dir, latest.name!)
-      latestImageName.value = latest.name!
+      latestImageName.value = latest.name! // 记录最新图片文件名
       await updatePreviewImage()
       status.value = `已加载最新地球图像（带黑边）：${latest.name}`
     } else {
       status.value = '暂无带黑边的地球图像，请先抓取'
     }
-
     // 检查初始化是否完成
     checkInitialization()
   } catch (e) {
@@ -541,20 +559,6 @@ function uint8ToBase64(bytes: Uint8Array): string {
   }
   return window.btoa(binary)
 }
-
-const latestImageLocalTime = computed(() => {
-  if (!latestImageName.value) return ''
-  // 假设文件名格式为 earth_YYYYMMDD_HHMM_black.png
-  const match = latestImageName.value.match(/earth_(\d{8})_(\d{4})/)
-  if (!match) return ''
-  const [, dateStr, timeStr] = match
-  // 构造 UTC 时间
-  const utcTime = new Date(
-    `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}:00Z`
-  )
-  // 转为本地时间字符串
-  return utcTime.toLocaleString()
-})
 
 // 可选：加一个按钮手动清理
 async function cleanOldImagesNow() {

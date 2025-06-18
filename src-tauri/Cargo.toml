@@ -1,6 +1,6 @@
 [package]
 name = "ImmediateEarth"
-version = "0.0.2"
+version = "0.0.4"
 description = "即刻地球"
 authors = ["Yiranzai"]
 edition = "2024"

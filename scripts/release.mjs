@@ -1,11 +1,3 @@
-/*
- * @Author: yiranzai wuqingdzx@gmail.com
- * @Date: 2024-07-13 22:15:09
- * @LastEditors: yiranzai wuqingdzx@gmail.com
- * @LastEditTime: 2024-07-14 01:24:58
- * @FilePath: /BackupTool/scripts/release.mjs
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
- */
 // scripts/release.mjs
 
 import { createRequire } from 'module';
@@ -22,20 +14,6 @@ async function release() {
 
   const packageJson = require('../package.json');
   let [a, b, c] = packageJson.version.split('.').map(Number);
-
-  if (flag === 'major') {  // 主版本
-    a += 1;
-    b = 0;
-    c = 0;
-  } else if (flag === 'minor') {  // 次版本
-    b += 1;
-    c = 0;
-  } else if (flag === 'patch') {  // 补丁版本
-    c += 1;
-  } else {
-    console.log(`Invalid flag "${flag}"`);
-    process.exit(1);
-  }
 
   nextVersion = `${a}.${b}.${c}`;
   packageJson.version = nextVersion;

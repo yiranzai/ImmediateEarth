@@ -1,9 +1,9 @@
 [package]
-name = "tauri-app"
+name = "ImmediateEarth"
 version = "2.3.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+description = "即刻地球"
+authors = ["Yiranzai"]
+edition = "2024"
 repository = "https://github.com/Uninen/tauri-vue-template"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

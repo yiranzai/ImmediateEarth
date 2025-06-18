@@ -27,7 +27,7 @@ store.initApp()
     <footer class="bg-gray-800 text-gray-400 py-4 mt-8">
       <div class="max-w-4xl mx-auto text-center text-sm">
         <p>数据来源: 日本气象厅 向日葵8号卫星 (Himawari-8)</p>
-        <p class="mt-1">图像每10分钟自动更新 | 涓流下载技术确保低带宽占用</p>
+        <p class="mt-1">图像每30分钟自动更新 | 涓流下载技术确保低带宽占用</p>
       </div>
     </footer>
   </main>

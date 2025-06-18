@@ -16,7 +16,7 @@ store.initApp()
   <main class="bg-gray-900 min-h-screen">
     <header class="bg-gray-800 py-6 px-4 shadow-lg">
       <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold text-white text-center">ImmediateEarth</h1>
+        <h1 class="text-3xl font-bold text-white text-center">即刻地球</h1>
         <p class="text-gray-300 text-center mt-2">实时向日葵8号卫星地球图像</p>
       </div>
     </header>

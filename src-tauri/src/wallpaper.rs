@@ -39,6 +39,9 @@ pub async fn crop_image_for_monitor(
     let width = monitor.size().width;
     let height = monitor.size().height;
     let scale_factor = monitor.scale_factor();
+    let target_width = (width as f64 * scale_factor) as u32;
+    let target_height = (height as f64 * scale_factor) as u32;
+    let screen_ratio = target_width as f64 / target_height as f64;
     
     let monitor_dir = create_monitor_wallpaper_dir(app, monitor_index)?;
     
@@ -49,40 +52,64 @@ pub async fn crop_image_for_monitor(
     let (img_width, img_height) = img.dimensions();
     let black_border = (img_width as f32 / 12.0).round() as u32 * 2;
     
+    let screen_is_landscape = target_width >= target_height;
     let now_utc = Utc::now();
     let japan_time = now_utc + Duration::hours(9);
     let japan_hour = japan_time.hour();
     
-    // 处理黑边
-    if japan_hour < 6 {
-        if img_width > black_border {
-            let cropped = img.crop(black_border, 0, img_width - black_border, img_width);
-            let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
-            imageops::replace(&mut canvas, &cropped, 0, 0);
-            img = DynamicImage::ImageRgba8(canvas);
-        }
-    } else if japan_hour >= 15 {
-        if img_width > black_border {
-            let cropped = img.crop(0, 0, img_width - black_border, img_width);
-            let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
-            imageops::replace(&mut canvas, &cropped, black_border as i64, 0);
-            img = DynamicImage::ImageRgba8(canvas);
+    // 横屏处理黑边，竖屏不处理黑边
+    if screen_is_landscape {
+        // 处理黑边
+        if japan_hour < 6 {
+            // 凌晨
+            if img_width > black_border {
+                let cropped = img.crop(black_border, 0, img_width - black_border, img_width);
+                let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
+                imageops::replace(&mut canvas, &cropped, 0, 0);
+                img = DynamicImage::ImageRgba8(canvas);
+            }
+        } else if japan_hour >= 15 {
+            // 下午
+            if img_width > black_border {
+                let cropped = img.crop(0, 0, img_width - black_border, img_width);
+                let mut canvas = RgbaImage::from_pixel(img_width, img_height, Rgba([0, 0, 0, 255]));
+                imageops::replace(&mut canvas, &cropped, black_border as i64, 0);
+                img = DynamicImage::ImageRgba8(canvas);
+            }
         }
     }
     // 重新获取处理后的图片尺寸
     let (img_width, img_height) = img.dimensions();
     let img_ratio = img_width as f64 / img_height as f64;
-    let target_width = (width as f64 * scale_factor) as u32;
-    let target_height = (height as f64 * scale_factor) as u32;
-    let screen_ratio = target_width as f64 / target_height as f64;
     let cropped_img = if screen_ratio > img_ratio {
+        // 如果屏幕比例大于图片比例，则裁剪高度
         let target_height = (img_width as f64 / screen_ratio).round() as u32;
         let crop_height = target_height.min(img_height);
-        img.crop(0, 0, img_width, crop_height)
+        if screen_is_landscape || japan_hour >= 6 {
+            // 横屏或竖屏非凌晨，裁剪顶部
+            img.crop(0, 0, img_width, crop_height)
+        } else {
+                // 凌晨，保留底部
+                img.crop(0, img_height - crop_height, img_width, crop_height)
+        
+        }
     } else {
+        // 如果屏幕比例小于图片比例，则裁剪宽度
         let target_width = (img_height as f64 * screen_ratio).round() as u32;
         let crop_width = target_width.min(img_width);
-        img.crop(0, 0, crop_width, img_height)
+        if screen_is_landscape {
+            // 横屏：保持原逻辑，裁剪左侧
+            img.crop(0, 0, crop_width, img_height)
+        } else {
+            // 竖屏：根据时间决定保留哪一侧
+            if japan_hour < 6 {
+                // 早晨，保留右部
+                img.crop(img_width - crop_width, 0, crop_width, img_height)
+            } else {
+                // 其他时间，保留左部
+                img.crop(0, 0, crop_width, img_height)
+            }
+        }
     };
     let new_path = monitor_dir.join(format!(
         "wallpaper_{}x{}.png",

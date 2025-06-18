@@ -24,3 +24,7 @@ dist-ssr
 *.local
 LOCAL_NOTES.md
 .env
+.cursorb/*
+.lingmab/*
+.traeb/*
+

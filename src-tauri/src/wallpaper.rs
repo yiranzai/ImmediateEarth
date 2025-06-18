@@ -1,24 +1,26 @@
-use chrono::{Timelike, Utc, Duration};
-use image::{self, GenericImageView, Rgba, RgbaImage, imageops, DynamicImage};
+use chrono::{Duration, Timelike, Utc};
+use image::{self, DynamicImage, GenericImageView, Rgba, RgbaImage, imageops};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 
 /// 为每个显示器创建独立的壁纸目录
-pub fn create_monitor_wallpaper_dir(app: &AppHandle, monitor_index: usize) -> Result<PathBuf, String> {
+pub fn create_monitor_wallpaper_dir(
+    app: &AppHandle,
+    monitor_index: usize,
+) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
         .app_local_data_dir()
         .map_err(|e| format!("无法获取应用本地数据目录: {}", e))?;
-    
+
     let mut base_path = PathBuf::from(app_data_dir);
     base_path.push("immediate_earth");
     base_path.push(format!("monitor_{}", monitor_index));
-    
-    fs::create_dir_all(&base_path)
-        .map_err(|e| format!("创建显示器壁纸目录失败: {}", e))?;
-    
+
+    fs::create_dir_all(&base_path).map_err(|e| format!("创建显示器壁纸目录失败: {}", e))?;
+
     Ok(base_path)
 }
 
@@ -28,13 +30,14 @@ pub async fn crop_image_for_monitor(
     image_path: &str,
     monitor_index: usize,
 ) -> Result<String, String> {
-    let monitors = app.available_monitors()
+    let monitors = app
+        .available_monitors()
         .map_err(|e| format!("获取显示器信息失败: {}", e))?;
-    
+
     if monitor_index >= monitors.len() {
         return Err(format!("无效的显示器索引: {}", monitor_index));
     }
-    
+
     let monitor = &monitors[monitor_index];
     let width = monitor.size().width;
     let height = monitor.size().height;
@@ -42,21 +45,20 @@ pub async fn crop_image_for_monitor(
     let target_width = (width as f64 * scale_factor) as u32;
     let target_height = (height as f64 * scale_factor) as u32;
     let screen_ratio = target_width as f64 / target_height as f64;
-    
+
     let monitor_dir = create_monitor_wallpaper_dir(app, monitor_index)?;
-    
+
     let path = Path::new(image_path);
-    let mut img = image::open(path)
-        .map_err(|e| format!("打开图片失败: {}", e))?;
-    
+    let mut img = image::open(path).map_err(|e| format!("打开图片失败: {}", e))?;
+
     let (img_width, img_height) = img.dimensions();
     let black_border = (img_width as f32 / 12.0).round() as u32 * 2;
-    
+
     let screen_is_landscape = target_width >= target_height;
     let now_utc = Utc::now();
     let japan_time = now_utc + Duration::hours(9);
     let japan_hour = japan_time.hour();
-    
+
     // 横屏处理黑边，竖屏不处理黑边
     if screen_is_landscape {
         // 处理黑边
@@ -89,42 +91,33 @@ pub async fn crop_image_for_monitor(
             // 横屏或竖屏非凌晨，裁剪顶部
             img.crop(0, 0, img_width, crop_height)
         } else {
-                // 凌晨，保留底部
-                img.crop(0, img_height - crop_height, img_width, crop_height)
-        
+            // 凌晨，保留底部
+            img.crop(0, img_height - crop_height, img_width, crop_height)
         }
     } else {
         // 如果屏幕比例小于图片比例，则裁剪宽度
         let target_width = (img_height as f64 * screen_ratio).round() as u32;
         let crop_width = target_width.min(img_width);
-        if screen_is_landscape {
-            // 横屏：保持原逻辑，裁剪左侧
+        if screen_is_landscape || japan_hour >= 6 {
+            // 横屏或竖屏非凌晨，裁剪左侧
             img.crop(0, 0, crop_width, img_height)
         } else {
-            // 竖屏：根据时间决定保留哪一侧
-            if japan_hour < 6 {
-                // 早晨，保留右部
-                img.crop(img_width - crop_width, 0, crop_width, img_height)
-            } else {
-                // 其他时间，保留左部
-                img.crop(0, 0, crop_width, img_height)
-            }
+            // 凌晨，保留右侧
+            img.crop(img_width - crop_width, 0, crop_width, img_height)
         }
     };
-    let new_path = monitor_dir.join(format!(
-        "wallpaper_{}x{}.png",
-        width, height
-    ));
-    cropped_img.save(&new_path)
+    let new_path = monitor_dir.join(format!("wallpaper_{}x{}.png", width, height));
+    cropped_img
+        .save(&new_path)
         .map_err(|e| format!("保存裁剪后图片失败: {}", e))?;
     Ok(new_path.to_string_lossy().into_owned())
 }
 
 /// 为单个显示器设置壁纸
 pub async fn set_wallpaper_for_monitor(
-    image_path: String, 
+    image_path: String,
     platform: String,
-    monitor_index: usize
+    monitor_index: usize,
 ) -> Result<(), String> {
     match platform.as_str() {
         "windows" => {
@@ -140,7 +133,8 @@ pub async fn set_wallpaper_for_monitor(
         "macos" => {
             let cmd = format!(
                 "tell application \"System Events\" to set picture of desktop {} to \"{}\"",
-                monitor_index + 1, image_path
+                monitor_index + 1,
+                image_path
             );
             Command::new("osascript")
                 .args(&["-e", &cmd])

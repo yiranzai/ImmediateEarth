@@ -8,6 +8,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ClockOverlay: typeof import('./src/components/ClockOverlay.vue')['default']
+    DetailsView: typeof import('./src/components/DetailsView.vue')['default']
+    MainView: typeof import('./src/components/MainView.vue')['default']
     SatelliteImageComponent: typeof import('./src/components/SatelliteImageComponent.vue')['default']
   }
 }

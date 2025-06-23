@@ -3,139 +3,107 @@
  * @Date: 2025-06-12 21:12:07
  * @LastEditors: yiranzai wuqingdzx@gmail.com
  * @LastEditTime: 2025-06-18 22:53:18
- * @FilePath: \ImmediateEarth\src\components\SatelliteImageComponent.vue
+ * @FilePath: \ImmediateEarth\src\components\DetailsView.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
 <template>
   <div class="satellite-image-container">
-    <div class="mb-6 flex gap-2">
-      <button
-        :class="activeTab === 'main' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-t font-semibold"
-        @click="activeTab = 'main'"
-      >
-        主界面
-      </button>
-      <button
-        :class="activeTab === 'settings' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
-        class="px-4 py-2 rounded-t font-semibold"
-        @click="activeTab = 'settings'"
-      >
-        设置
-      </button>
-          <!-- 新增：地球大图时间显示 -->
-    <div v-if="latestImageLocalTime" class="px-4 py-2 rounded-t font-semibold">
-      当前图片更新时间：<span class="text-yellow-500 font-bold">{{ latestImageLocalTime }}</span>
-    </div>
+    <!-- 新增：地球大图时间显示 -->
+    <div v-if="storeLatestImageLocalTime" class="px-4 py-2 rounded-t font-semibold text-white">
+      当前图片更新时间：<span class="text-yellow-500 font-bold">{{ storeLatestImageLocalTime }}</span>
     </div>
 
-    <div v-show="activeTab === 'main'">
-      <!-- 天气信息卡片 -->
-      <div class="mb-6 bg-blue-300 text-blue-900 rounded shadow p-4">
-        <div class="flex items-center gap-2 mt-2">
+    <!-- 新增：多屏缩略预览区 -->
+    <div class="mb-4">
+      <span class="block text-sm text-red-500 mb-1">屏幕布局预览：</span>
+      <div class="bg-[#f3f4f6] p-5 inline-block">
+        <canvas ref="previewCanvas" style="background: #f3f4f6" @contextmenu.prevent="showContextMenu"></canvas>
+      </div>
+    </div>
+
+    <!-- 天气信息展示区 -->
+    <div class="mb-4 p-3 rounded bg-blue-100 text-blue-900 font-semibold flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span>OpenWeather Key：</span>
+        <template v-if="!openWeatherKey">
+          <input v-model="inputKey" type="text" class="border rounded px-2 py-1" placeholder="OpenWeather Key" />
+          <button @click="saveKey" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
+        </template>
+        <template v-else>
+          <span class="text-xs text-gray-500">已保存</span>
+          <button @click="clearKey" class="ml-2 px-2 py-1 bg-gray-300 rounded text-gray-700">更换Key</button>
+        </template>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <span>城市：</span>
+        <input v-model="cityInput" type="text" class="border rounded px-2 py-1" placeholder="请输入城市名" />
+        <button @click="saveCity" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
+        <button @click="autoGetCity" class="ml-2 px-3 py-1 bg-green-500 text-white rounded">自动获取城市</button>
+        <span v-if="autoCityLoading" class="text-xs text-gray-500">自动获取中...</span>
+      </div>
+       <div class="flex items-center gap-2 mt-2">
           <span>当前位置天气：</span>
           <span v-if="weatherInfo">{{ weatherInfo }}</span>
           <span v-else>加载中...</span>
         </div>
-      </div>
-
-      <!-- 新增：多屏缩略预览区 -->
-      <div class="mb-4">
-        <span class="block text-sm text-red-500 mb-1">屏幕布局预览：</span>
-        <div class="bg-[#f3f4f6] p-5 inline-block">
-          <canvas ref="previewCanvas" style="background: #f3f4f6"></canvas>
-        </div>
-      </div>
-
-      <!-- 地球大图预览卡片 -->
-      <div class="mb-8 bg-white rounded shadow p-4 flex flex-col items-center">
-        <span class="block text-sm text-red-500 mb-1">地球大图预览：</span>
-        <div v-if="previewImage" class="mt-4">
-          <img v-if="previewImage" :src="previewImage" alt="最新地球图像预览" />
-        </div>
-      </div>
     </div>
 
-    <div v-show="activeTab === 'settings'">
-      <!-- 天气信息展示区 -->
-      <div class="mb-4 p-3 rounded bg-blue-100 text-blue-900 font-semibold flex flex-col gap-2">
-        <div class="flex items-center gap-2">
-          <span>OpenWeather Key：</span>
-          <template v-if="!openWeatherKey">
-            <input v-model="inputKey" type="text" class="border rounded px-2 py-1" placeholder="OpenWeather Key" />
-            <button @click="saveKey" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
-          </template>
-          <template v-else>
-            <span class="text-xs text-gray-500">已保存</span>
-            <button @click="clearKey" class="ml-2 px-2 py-1 bg-gray-300 rounded text-gray-700">更换Key</button>
-          </template>
-        </div>
-        <div class="flex items-center gap-2 mt-2">
-          <span>城市：</span>
-          <input v-model="cityInput" type="text" class="border rounded px-2 py-1" placeholder="请输入城市名" />
-          <button @click="saveCity" class="ml-2 px-3 py-1 bg-blue-500 text-white rounded">保存</button>
-          <button @click="autoGetCity" class="ml-2 px-3 py-1 bg-green-500 text-white rounded">自动获取城市</button>
-          <span v-if="autoCityLoading" class="text-xs text-gray-500">自动获取中...</span>
-        </div>
-      </div>
+    <!-- 自动定时设置壁纸开关 -->
+    <div class="mb-6 bg-white rounded shadow p-4 flex items-center gap-3">
+      <label class="flex items-center cursor-pointer select-none">
+        <input type="checkbox" v-model="autoSetWallpaperEnabled" class="form-checkbox h-5 w-5 text-green-600" />
+        <span class="ml-2 text-gray-800 font-medium">自动定时更新并设置壁纸（每30分钟）</span>
+      </label>
+      <span v-if="autoSetWallpaperEnabled" class="ml-2 text-green-600 text-sm">已开启</span>
+      <span v-else class="ml-2 text-gray-400 text-sm">已关闭</span>
+    </div>
 
-      <!-- 自动定时设置壁纸开关 -->
-      <div class="mb-6 bg-white rounded shadow p-4 flex items-center gap-3">
-        <label class="flex items-center cursor-pointer select-none">
-          <input type="checkbox" v-model="autoSetWallpaperEnabled" class="form-checkbox h-5 w-5 text-green-600" />
-          <span class="ml-2 text-gray-800 font-medium">自动定时更新并设置壁纸（每30分钟）</span>
-        </label>
-        <span v-if="autoSetWallpaperEnabled" class="ml-2 text-green-600 text-sm">已开启</span>
-        <span v-else class="ml-2 text-gray-400 text-sm">已关闭</span>
-      </div>
+    <!-- 操作按钮区 -->
+    <div class="mb-6 bg-white rounded shadow p-4 flex flex-wrap items-center gap-3">
+      <button
+        @click="updateEarthImage"
+        :disabled="isLoading"
+        class="h-10 px-6 rounded-lg font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+      >
+        {{ isLoading ? '加载中...' : '获取地球图像' }}
+      </button>
+      <button
+        @click="setAsWallpaperForAllMonitors"
+        :disabled="!storeMergedImagePath || monitorIndexes.length === 0"
+        class="h-10 px-6 rounded-lg font-semibold transition bg-green-600 hover:bg-green-700 text-white disabled:opacity-60"
+      >
+        {{ dynamicWallpaperBtnText }}
+      </button>
+      <button
+        @click="openImageDir"
+        class="h-10 px-6 rounded-lg font-semibold transition bg-emerald-600 hover:bg-emerald-700 text-white"
+      >
+        打开图片保存位置
+      </button>
+      <button @click="cleanOldImagesNow" class="h-10 px-6 rounded-lg bg-red-600 text-white">立即清理旧图片</button>
+    </div>
 
-      <!-- 操作按钮区 -->
-      <div class="mb-6 bg-white rounded shadow p-4 flex flex-wrap items-center gap-3">
-        <button
-          @click="updateEarthImage"
-          :disabled="isLoading"
-          class="h-10 px-6 rounded-lg font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+    <!-- 屏幕选择卡片 -->
+    <div class="mb-8 bg-gray-700 rounded shadow p-4">
+      <div class="text-lg font-bold mb-2">选择自动设置壁纸的屏幕</div>
+      <div class="flex flex-wrap gap-4">
+        <label
+          v-for="(monitor, idx) in monitors"
+          :key="idx"
+          class="flex items-center gap-2 bg-black-300 rounded px-3 py-2"
         >
-          {{ isLoading ? '加载中...' : '获取地球图像' }}
-        </button>
-        <button
-          @click="setAsWallpaperForAllMonitors"
-          :disabled="!mergedImagePath || monitorIndexes.length === 0"
-          class="h-10 px-6 rounded-lg font-semibold transition bg-green-600 hover:bg-green-700 text-white disabled:opacity-60"
-        >
-          {{ dynamicWallpaperBtnText }}
-        </button>
-        <button
-          @click="openImageDir"
-          class="h-10 px-6 rounded-lg font-semibold transition bg-emerald-600 hover:bg-emerald-700 text-white"
-        >
-          打开图片保存位置
-        </button>
-        <button @click="cleanOldImagesNow" class="h-10 px-6 rounded-lg bg-red-600 text-white">立即清理旧图片</button>
-      </div>
-
-      <!-- 屏幕选择卡片 -->
-      <div class="mb-8 bg-gray-700 rounded shadow p-4">
-        <div class="text-lg font-bold mb-2">选择自动设置壁纸的屏幕</div>
-        <div class="flex flex-wrap gap-4">
-          <label
-            v-for="(monitor, idx) in monitors"
-            :key="idx"
-            class="flex items-center gap-2 bg-black-300 rounded px-3 py-2"
-          >
-            <input type="checkbox" :value="idx" v-model="monitorIndexes" />
-            <span>
-              <span v-if="monitor.is_primary" class="text-red-600 font-bold">【主屏幕】</span>
-              屏幕{{ idx + 1 }}
-              <template v-if="monitor.name">（{{ monitor.name }}）</template>
-              <span class="text-xs text-gray-300 ml-1">
-                {{ monitor.size?.[0] || monitor.size?.width }}x{{ monitor.size?.[1] || monitor.size?.height }} 缩放:{{
-                  monitor.scale_factor
-                }}
-              </span>
+          <input type="checkbox" :value="idx" v-model="monitorIndexes" />
+          <span>
+            <span v-if="monitor.is_primary" class="text-red-600 font-bold">【主屏幕】</span>
+            屏幕{{ idx + 1 }}
+            <template v-if="monitor.name">（{{ monitor.name }}）</template>
+            <span class="text-xs text-gray-300 ml-1">
+              {{ monitor.size?.[0] || monitor.size?.width }}x{{ monitor.size?.[1] || monitor.size?.height }} 缩放:{{
+                monitor.scale_factor
+              }}
             </span>
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
     </div>
   </div>
@@ -162,12 +130,15 @@ import { useStore } from '../store'
 import { platform } from '@tauri-apps/plugin-os'
 import { load } from '@tauri-apps/plugin-store'
 import { listen } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 
 const store = useStore()
+// 从 store 中获取共享的状态
+const storeMergedImagePath = computed(() => store.mergedImagePath)
+const storePreviewImage = computed(() => store.previewImage)
+const storeLatestImageLocalTime = computed(() => store.latestImageLocalTime)
+
 const tiles = ref<string[]>([])
-const mergedImagePath = ref('')
-const previewImage = ref('')
-const tilesDir = ref('')
 const status = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -334,7 +305,7 @@ function drawScreenPreview() {
   })
 }
 // 监听 monitors/previewImage 变化自动重绘
-watch([monitors, previewImage], drawScreenPreview)
+watch([monitors, storePreviewImage], drawScreenPreview)
 
 onMounted(async () => {
   storeAutoSetWallpaperEnabled = await load('settings.json')
@@ -348,7 +319,7 @@ onMounted(async () => {
   if (Array.isArray(savedIndexes)) {
     monitorIndexes.value = savedIndexes
   }
-  findLatestImage()
+  store.findLatestImage()
   listen('toggle-auto-set-wallpaper', () => {
     autoSetWallpaperEnabled.value = !autoSetWallpaperEnabled.value
   })
@@ -424,87 +395,19 @@ onUnmounted(() => {
   }
 })
 
-// 新增：地球大图本地时间
-const latestImageLocalTime = computed(() => {
-  if (!latestImageName.value) return ''
-  // 假设文件名格式为 earth_YYYYMMDD_HHMM_black.png
-  const match = latestImageName.value.match(/earth_(\d{8})_(\d{4})/)
-  if (!match) return ''
-  const [, dateStr, timeStr] = match
-  // 构造 UTC 时间
-  const utcTime = new Date(
-    `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}:00Z`
-  )
-  // 转为本地时间字符串
-  return utcTime.toLocaleString()
-})
-
-async function findLatestImage() {
-  try {
-    // 获取图片目录
-    const dir = await invoke<string>('get_image_dir')
-    tilesDir.value = dir
-    // 读取目录下所有文件
-    const files = await readDir(dir)
-    // 只筛选 _black.png 结尾的图片
-    const imageFiles = files
-      .filter(f => f.name && /^earth_\d{8}_\d{4}_black\.png$/.test(f.name))
-      .sort((a, b) => (a.name! > b.name! ? 1 : -1))
-    if (imageFiles.length > 0) {
-      const latest = imageFiles[imageFiles.length - 1]
-      mergedImagePath.value = await join(dir, latest.name!)
-      latestImageName.value = latest.name! // 记录最新图片文件名
-      await updatePreviewImage()
-      status.value = `已加载最新地球图像（带黑边）：${latest.name}`
-    } else {
-      status.value = '暂无带黑边的地球图像，请先抓取'
-    }
-    // 检查初始化是否完成
-    checkInitialization()
-  } catch (e) {
-    errorMessage.value = '加载最新图片失败'
-  }
-}
-
 async function updateEarthImage() {
   isLoading.value = true
   status.value = '正在获取最新地球卫星图像...'
   errorMessage.value = ''
 
   try {
-    const result = await invoke('update_earth_image')
-    const data = JSON.parse(result as string)
-    tilesDir.value = data.tiles_dir
-    mergedImagePath.value = data.merged_image
+    // 后端已经把所有事情都做了，包括保存原始图和黑边图
+    await invoke('update_earth_image')
+    
+    // 更新成功后，直接调用 store 中的 action 来刷新数据
+    await store.findLatestImage()
+    status.value = '地球图像更新成功！'
 
-    // 加载所有16个瓦片
-    tiles.value = []
-    for (let row = 0; row < 4; row++) {
-      for (let col = 0; col < 4; col++) {
-        const tilePath = await join(tilesDir.value, `tile_${col}_${row}.png`)
-        const imageBytes = await readFile(tilePath, {})
-        const base64Data = encodeBase64(imageBytes)
-        tiles.value.push(`data:image/png;base64,${base64Data}`)
-      }
-    }
-
-    // 从文件名解析UTC时间并转换为北京时间
-    const fileName = (await basename(mergedImagePath.value)) || ''
-    const timeMatch = fileName.match(/earth_(\d{8})_(\d{4})\.png/)
-    if (timeMatch) {
-      const [, dateStr, timeStr] = timeMatch
-      const utcTime = new Date(
-        `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${timeStr.substring(0, 2)}:${timeStr.substring(2, 4)}:00Z`
-      )
-      // 转换为北京时间(UTC+8)
-      const beijingTime = new Date(utcTime.getTime() + 8 * 60 * 60 * 1000)
-      status.value = `地球图像更新成功 (${beijingTime.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})`
-    } else {
-      status.value = '地球图像更新成功！'
-    }
-
-    await findLatestImage()
-    await updatePreviewImage()
   } catch (error) {
     console.error('Failed to update earth image:', error)
     errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -515,7 +418,7 @@ async function updateEarthImage() {
 }
 
 async function setAsWallpaperForAllMonitors() {
-  if (!mergedImagePath.value) {
+  if (!storeMergedImagePath.value) {
     errorMessage.value = '没有可用的地球图像'
     return
   }
@@ -526,7 +429,7 @@ async function setAsWallpaperForAllMonitors() {
   try {
     const currentPlatform = await platform()
     const results = await invoke<string>('set_wallpaper_for_all_monitors', {
-      imagePath: mergedImagePath.value,
+      imagePath: storeMergedImagePath.value,
       platform: currentPlatform,
       monitorIndexes: monitorIndexes.value,
     })
@@ -546,28 +449,6 @@ async function openImageDir() {
   const dir = await invoke<string>('get_image_dir')
   // 推荐用 revealItemInDir，高亮目录
   await revealItemInDir(dir)
-}
-
-async function updatePreviewImage() {
-  if (!mergedImagePath.value) return
-  try {
-    const imageBytes = await readFile(mergedImagePath.value)
-    const base64Data = uint8ToBase64(imageBytes)
-    previewImage.value = `data:image/png;base64,${base64Data}`
-    // 检查初始化是否完成
-    checkInitialization()
-  } catch (e) {
-    console.error('图片读取失败', mergedImagePath.value, e)
-    previewImage.value = ''
-  }
-}
-
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return window.btoa(binary)
 }
 
 // 可选：加一个按钮手动清理
@@ -674,7 +555,7 @@ watch([openWeatherKey, savedCity], ([key, city]) => {
 // 修改：checkInitialization
 function checkInitialization() {
   // 当天气信息和预览图都加载完成时，标记为初始化完成
-  if (weatherInfo.value && previewImage.value) {
+  if (weatherInfo.value && storePreviewImage.value) {
     if (!isInitialized.value) {
       isInitialized.value = true
       // 只在首次初始化时，如果自动开关已开，立即执行一次
@@ -686,13 +567,13 @@ function checkInitialization() {
 }
 
 const monitorWallpapers = ref<string[]>([])
-const monitorImages = ref<HTMLImageElement[]>([])
+const monitorImages = ref<(HTMLImageElement | undefined)[]>([])
 
 async function loadMonitorWallpapersAndDraw() {
   if (!monitors.value.length) return
   const baseDir = await invoke<string>('get_image_dir')
   const arr: string[] = []
-  const imgArr: HTMLImageElement[] = []
+  const imgArr: (HTMLImageElement | undefined)[] = []
   const loadPromises: Promise<void>[] = []
 
   for (let i = 0; i < monitors.value.length; i++) {
@@ -702,7 +583,7 @@ async function loadMonitorWallpapersAndDraw() {
     const imgPath = await join(baseDir, `monitor_${i}`, `wallpaper_${w}x${h}.png`)
     try {
       const bytes = await readFile(imgPath)
-      const base64 = uint8ToBase64(bytes)
+      const base64 = encodeBase64(bytes)
       const src = `data:image/png;base64,${base64}`
       arr[i] = src
       // 预加载图片，返回 Promise
@@ -717,7 +598,7 @@ async function loadMonitorWallpapersAndDraw() {
       )
     } catch (e) {
       arr[i] = ''
-      imgArr[i] = new Image();
+      imgArr[i] = undefined
       loadPromises.push(Promise.resolve())
     }
   }
@@ -732,12 +613,24 @@ async function loadMonitorWallpapersAndDraw() {
 // 监听 monitors 变化自动加载并绘制
 watch(monitors, loadMonitorWallpapersAndDraw, { immediate: true })
 
-const activeTab = ref('main') // 'main' 或 'settings'
+async function showContextMenu() {
+  if (confirm('是否要保存屏幕布局预览图？')) {
+    await savePreviewImage()
+  }
+}
 
-// 监听activeTab变化，确保在切换tab时重新绘制预览
-watch(activeTab, () => {
-  nextTick(() => {
-    drawScreenPreview()
-  })
-})
-</script>
+async function savePreviewImage() {
+  if (!previewCanvas.value) {
+    return
+  }
+  const imageDataUrl = previewCanvas.value.toDataURL('image/png')
+  const base64Data = imageDataUrl.split(',')[1]
+  try {
+    await invoke('save_base64_image_as', { base64Data })
+    alert('预览图已保存！')
+  } catch (error) {
+    console.error('保存预览图失败:', error)
+    alert(`保存预览图失败: ${error}`)
+  }
+}
+</script> 

@@ -22,7 +22,15 @@
     "store:default",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "$APPLOCALDATA" }, { "path": "$APPLOCALDATA/**" }]
-    }
+      "allow": [
+        {
+          "path": "$APPLOCALDATA"
+        },
+        {
+          "path": "$APPLOCALDATA/**"
+        }
+      ]
+    },
+    "dialog:default"
   ]
 }

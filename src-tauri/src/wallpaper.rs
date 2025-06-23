@@ -126,13 +126,19 @@ pub async fn set_wallpaper_for_monitor(
             use windows::core::{PCWSTR};
 
             // 将路径转换为宽字符串
-            let wide_path: Vec<u16> = image_path.encode_utf16().chain(std::iter::once(0)).collect();
+            let wide_path: Vec<u16> = image_path
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
             let pcwstr_path = PCWSTR(wide_path.as_ptr());
 
             // 验证文件路径是否存在
             if !Path::new(&image_path).exists() {
-                return Err(format!("壁纸文件不存在: {}
-请检查文件路径是否正确", image_path));
+                return Err(format!(
+                    "壁纸文件不存在: {}
+请检查文件路径是否正确",
+                    image_path
+                ));
             }
 
             // 设置壁纸
@@ -140,8 +146,8 @@ pub async fn set_wallpaper_for_monitor(
                 SystemParametersInfoW(
                     SPI_SETDESKWALLPAPER,
                     0,
-                    Some(pcwstr_path.0 as *mut _), 
-                    SPIF_UPDATEINIFILE | SPIF_SENDCHANGE
+                    Some(pcwstr_path.0 as *mut _),
+                    SPIF_UPDATEINIFILE | SPIF_SENDCHANGE,
                 )
             };
 
